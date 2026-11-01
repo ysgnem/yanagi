@@ -131,6 +131,7 @@ npm run format:check
 
 - 🛠️ [セットアップガイド](./docs/SETUP.md) — 必要環境、Discord設定、環境変数、外部サービス、Docker
 - 📈 [運用ガイド](./docs/OPERATIONS.md) — ログ、バックアップ、更新、障害対応
+- ✏️ [識別子の省略パターン](./docs/ABBREVIATIONS.md) — コードで使う略称と命名ルール
 
 ## ⚠️ 制約と注意事項
 
