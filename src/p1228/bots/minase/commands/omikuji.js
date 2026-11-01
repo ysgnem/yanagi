@@ -11,12 +11,10 @@ const fortunes = [
 
 export default {
   data: new SlashCommandBuilder().setName('omikuji').setDescription('今日の運勢を占います'),
-  async execute(interaction) {
-    const [fortune, message] = fortunes[Math.floor(Math.random() * fortunes.length)];
-    return interaction.reply({
-      embeds: [
-        new EmbedBuilder().setTitle(`🔮 ${fortune}`).setDescription(message).setColor(0x5865f2),
-      ],
+  async execute(i) {
+    const [fortune, msg] = fortunes[Math.floor(Math.random() * fortunes.length)];
+    return i.reply({
+      embeds: [new EmbedBuilder().setTitle(`🔮 ${fortune}`).setDescription(msg).setColor(0x5865f2)],
     });
   },
 };

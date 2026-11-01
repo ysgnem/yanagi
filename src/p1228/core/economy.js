@@ -21,9 +21,9 @@ function claimDate() {
 }
 
 export class EconomyRepository {
-  constructor(databasePath) {
-    fs.mkdirSync(path.dirname(databasePath), { recursive: true });
-    this.db = new Database(databasePath);
+  constructor(dbPath) {
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    this.db = new Database(dbPath);
     try {
       this.db.pragma('journal_mode = WAL');
       this.db.pragma('foreign_keys = ON');
@@ -44,21 +44,21 @@ export class EconomyRepository {
         claim_date TEXT NOT NULL, PRIMARY KEY(guild_id, user_id, claim_type, claim_date)
       );
     `);
-    } catch (error) {
+    } catch (err) {
       this.db.close();
-      throw error;
+      throw err;
     }
   }
 
-  ensureAccount(guildId, userId, initialBalance = 0) {
-    if (!Number.isSafeInteger(initialBalance) || initialBalance < 0)
+  ensureAccount(guildId, userId, initBalance = 0) {
+    if (!Number.isSafeInteger(initBalance) || initBalance < 0)
       throw new RangeError('初期残高は0以上の整数にしてください。');
     return this.db
       .transaction(() => {
         const result = this.db
           .prepare('INSERT OR IGNORE INTO accounts(guild_id,user_id,balance) VALUES(?,?,?)')
-          .run(String(guildId), String(userId), initialBalance);
-        if (result.changes) this._ledger(guildId, userId, initialBalance, 'initial-balance');
+          .run(String(guildId), String(userId), initBalance);
+        if (result.changes) this._ledger(guildId, userId, initBalance, 'initial-balance');
       })
       .immediate();
   }
@@ -112,15 +112,15 @@ export class EconomyRepository {
       .immediate();
   }
 
-  lottery(guildId, userId, fee, payout, initialBalance = 0) {
-    for (const value of [fee, payout, initialBalance])
+  lottery(guildId, userId, fee, payout, initBalance = 0) {
+    for (const value of [fee, payout, initBalance])
       if (!Number.isSafeInteger(value) || value < 0)
         throw new RangeError('参加費・当選金・初期残高は0以上の整数にしてください。');
     return this.db
       .transaction(() => {
         this.db
           .prepare('INSERT OR IGNORE INTO accounts(guild_id,user_id,balance) VALUES(?,?,?)')
-          .run(String(guildId), String(userId), initialBalance);
+          .run(String(guildId), String(userId), initBalance);
         const current = this.balance(guildId, userId);
         if (current < fee) throw new Error('残高が不足しています。');
         const balance = assertSafeBalance(current - fee + payout);
@@ -148,13 +148,13 @@ export class EconomyRepository {
             .run(String(guildId), String(id));
         const balance = this.balance(guildId, senderId);
         if (balance < amount) throw new Error('残高が不足しています。');
-        const recipientBalance = assertSafeBalance(this.balance(guildId, recipientId) + amount);
+        const toBal = assertSafeBalance(this.balance(guildId, recipientId) + amount);
         this.db
           .prepare('UPDATE accounts SET balance=balance-? WHERE guild_id=? AND user_id=?')
           .run(amount, String(guildId), String(senderId));
         this.db
           .prepare('UPDATE accounts SET balance=? WHERE guild_id=? AND user_id=?')
-          .run(recipientBalance, String(guildId), String(recipientId));
+          .run(toBal, String(guildId), String(recipientId));
         this._ledger(guildId, senderId, -amount, 'transfer-out');
         this._ledger(guildId, recipientId, amount, 'transfer-in');
       })

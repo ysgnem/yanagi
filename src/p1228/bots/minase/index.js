@@ -3,29 +3,29 @@ import { loadModules } from '../module-loader.js';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const directory = path.dirname(fileURLToPath(import.meta.url));
+const dir = path.dirname(fileURLToPath(import.meta.url));
 
 export async function startMinase() {
-  const [commands, featureFactories] = await Promise.all([
-    loadModules(path.join(directory, 'commands')),
-    loadModules(path.join(directory, 'features')),
+  const [cmds, factories] = await Promise.all([
+    loadModules(path.join(dir, 'commands')),
+    loadModules(path.join(dir, 'features')),
   ]);
-  if (featureFactories.some((createFeature) => typeof createFeature !== 'function'))
+  if (factories.some((create) => typeof create !== 'function'))
     throw new TypeError('Minase feature modules must default-export a factory function');
-  const features = await Promise.all(featureFactories.map((createFeature) => createFeature()));
+  const feats = await Promise.all(factories.map((create) => create()));
 
   return startBot({
     botName: 'minase-bot',
     tokenEnv: 'MINASE_BOT_TOKEN',
     multiTokenEnv: 'MINASE_BOT_TOKENS',
-    commands,
-    ...Object.assign({}, ...features.map((feature) => feature.context ?? {})),
+    commands: cmds,
+    ...Object.assign({}, ...feats.map((feat) => feat.context ?? {})),
     onShutdown: () => {
-      features.forEach((feature) => feature.onShutdown?.());
+      feats.forEach((feat) => feat.onShutdown?.());
     },
-  }).catch((error) => {
-    features.forEach((feature) => feature.onShutdown?.());
-    throw error;
+  }).catch((err) => {
+    feats.forEach((feat) => feat.onShutdown?.());
+    throw err;
   });
 }
 

@@ -4,18 +4,12 @@ export default {
   data: new SlashCommandBuilder()
     .setName('daily')
     .setDescription('1日1回、デイリー報酬を受け取ります'),
-  async execute(interaction, { repository, startBalance, dailyReward }) {
-    if (!interaction.guildId)
-      return interaction.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
-    repository.ensureAccount(interaction.guildId, interaction.user.id, startBalance);
+  async execute(i, { repository: repo, startBalance, dailyReward }) {
+    if (!i.guildId) return i.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
+    repo.ensureAccount(i.guildId, i.user.id, startBalance);
     try {
-      const amount = repository.claim(
-        interaction.guildId,
-        interaction.user.id,
-        dailyReward,
-        'entertainment-daily',
-      );
-      return interaction.reply({
+      const amount = repo.claim(i.guildId, i.user.id, dailyReward, 'entertainment-daily');
+      return i.reply({
         embeds: [
           new EmbedBuilder()
             .setTitle('デイリー報酬を受け取りました')
@@ -34,12 +28,12 @@ export default {
             ),
         ],
       });
-    } catch (error) {
-      return interaction.reply({
+    } catch (err) {
+      return i.reply({
         content:
-          error.code === 'SQLITE_CONSTRAINT_PRIMARYKEY'
+          err.code === 'SQLITE_CONSTRAINT_PRIMARYKEY'
             ? '今日は既に受け取り済みです。'
-            : error.message,
+            : err.message,
         ephemeral: true,
       });
     }

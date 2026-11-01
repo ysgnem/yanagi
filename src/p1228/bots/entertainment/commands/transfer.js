@@ -4,23 +4,22 @@ export default {
   data: new SlashCommandBuilder()
     .setName('transfer')
     .setDescription('サーバーメンバーへコインを送金します')
-    .addUserOption((option) => option.setName('member').setDescription('送金先').setRequired(true))
-    .addIntegerOption((option) =>
-      option
+    .addUserOption((opt) => opt.setName('member').setDescription('送金先').setRequired(true))
+    .addIntegerOption((opt) =>
+      opt
         .setName('amount')
         .setDescription('送金額')
         .setRequired(true)
         .setMinValue(1)
         .setMaxValue(1000000),
     ),
-  async execute(interaction, { repository }) {
-    if (!interaction.guildId)
-      return interaction.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
-    const member = interaction.options.getUser('member', true);
-    const amount = interaction.options.getInteger('amount', true);
+  async execute(i, { repository: repo }) {
+    if (!i.guildId) return i.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
+    const member = i.options.getUser('member', true);
+    const amount = i.options.getInteger('amount', true);
     try {
-      repository.transfer(interaction.guildId, interaction.user.id, member.id, amount);
-      return interaction.reply({
+      repo.transfer(i.guildId, i.user.id, member.id, amount);
+      return i.reply({
         embeds: [
           new EmbedBuilder()
             .setTitle('送金しました')
@@ -31,8 +30,8 @@ export default {
             ),
         ],
       });
-    } catch (error) {
-      return interaction.reply({ content: error.message, ephemeral: true });
+    } catch (err) {
+      return i.reply({ content: err.message, ephemeral: true });
     }
   },
 };

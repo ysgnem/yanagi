@@ -4,12 +4,11 @@ export default {
   data: new SlashCommandBuilder()
     .setName('balance')
     .setDescription('自分のEntertainment通貨残高を確認します'),
-  async execute(interaction, { repository, startBalance }) {
-    if (!interaction.guildId)
-      return interaction.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
-    repository.ensureAccount(interaction.guildId, interaction.user.id, startBalance);
-    const amount = repository.balance(interaction.guildId, interaction.user.id);
-    return interaction.reply({
+  async execute(i, { repository: repo, startBalance }) {
+    if (!i.guildId) return i.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
+    repo.ensureAccount(i.guildId, i.user.id, startBalance);
+    const amount = repo.balance(i.guildId, i.user.id);
+    return i.reply({
       embeds: [
         new EmbedBuilder()
           .setTitle('Entertainment残高')

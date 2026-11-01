@@ -14,7 +14,7 @@ import {
 import { positiveInt } from '../../../core/config.js';
 
 export const sessions = new Map();
-const sessionCreations = new Map();
+const sessionPromises = new Map();
 export const activeDownloads = new Set();
 export const maxConcurrentDownloads = 4;
 export const sessionKey = (clientId, guildId) => `${clientId}:${guildId}`;
@@ -27,7 +27,7 @@ export async function disposeSession(key, session) {
   if (sessions.get(key) === session) sessions.delete(key);
   session.closed = true;
   session.queueEpoch += 1;
-  for (const controller of session.pendingDownloads) controller.abort();
+  for (const abortCtl of session.pendingDownloads) abortCtl.abort();
   const files = [...session.queue.map((item) => item.path)];
   if (session.current) files.push(session.current.path);
   session.queue.length = 0;
@@ -43,36 +43,36 @@ export async function disposeSession(key, session) {
   );
 }
 
-export async function ensureSession(interaction) {
-  const channel = interaction.member?.voice?.channel;
-  if (!interaction.guild || !channel) throw new Error('先にボイスチャンネルへ参加してください。');
-  const key = sessionKey(interaction.client.user.id, interaction.guildId);
-  const creating = sessionCreations.get(key);
+export async function ensureSession(i) {
+  const channel = i.member?.voice?.channel;
+  if (!i.guild || !channel) throw new Error('先にボイスチャンネルへ参加してください。');
+  const key = sessionKey(i.client.user.id, i.guildId);
+  const creating = sessionPromises.get(key);
   if (creating) {
     const session = await creating;
     if (session.channelId === channel.id && sessions.get(key) === session) return session;
-    return ensureSession(interaction);
+    return ensureSession(i);
   }
   const existing = sessions.get(key);
   if (existing?.channelId === channel.id) return existing;
 
   const create = (async () => {
     if (existing) await disposeSession(key, existing);
-    const connection = joinVoiceChannel({
+    const conn = joinVoiceChannel({
       channelId: channel.id,
-      guildId: interaction.guildId,
-      adapterCreator: interaction.guild.voiceAdapterCreator,
+      guildId: i.guildId,
+      adapterCreator: i.guild.voiceAdapterCreator,
       selfDeaf: true,
     });
     try {
-      await entersState(connection, VoiceConnectionStatus.Ready, 20000);
-    } catch (error) {
-      connection.destroy();
-      throw error;
+      await entersState(conn, VoiceConnectionStatus.Ready, 20000);
+    } catch (err) {
+      conn.destroy();
+      throw err;
     }
     const player = createAudioPlayer();
     const session = {
-      connection,
+      connection: conn,
       player,
       channelId: channel.id,
       queue: [],
@@ -81,25 +81,25 @@ export async function ensureSession(interaction) {
       queueEpoch: 0,
       closed: false,
     };
-    connection.subscribe(player);
+    conn.subscribe(player);
     player.on(AudioPlayerStatus.Idle, () => {
       if (session.current) {
-        void fs.rm(session.current.path, { force: true }).catch((error) => {
-          console.error('Could not remove Music temporary file', error);
+        void fs.rm(session.current.path, { force: true }).catch((err) => {
+          console.error('Could not remove Music temporary file', err);
         });
       }
       session.current = null;
       void playNext(session);
     });
-    player.on('error', (error) => console.error('Music player error', error));
+    player.on('error', (err) => console.error('Music player error', err));
     sessions.set(key, session);
     return session;
   })();
-  sessionCreations.set(key, create);
+  sessionPromises.set(key, create);
   try {
     return await create;
   } finally {
-    if (sessionCreations.get(key) === create) sessionCreations.delete(key);
+    if (sessionPromises.get(key) === create) sessionPromises.delete(key);
   }
 }
 
@@ -109,12 +109,12 @@ export async function playNext(session) {
   session.current = item;
   try {
     session.player.play(createAudioResource(item.path));
-  } catch (error) {
-    await fs.rm(item.path, { force: true }).catch((cleanupError) => {
-      console.error('Could not remove Music temporary file', cleanupError);
+  } catch (err) {
+    await fs.rm(item.path, { force: true }).catch((cleanupErr) => {
+      console.error('Could not remove Music temporary file', cleanupErr);
     });
     session.current = null;
-    console.error('Could not start music playback', error);
+    console.error('Could not start music playback', err);
     void playNext(session);
   }
 }

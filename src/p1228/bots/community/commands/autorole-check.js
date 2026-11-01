@@ -4,9 +4,9 @@ export default {
   data: new SlashCommandBuilder()
     .setName('autorole-check')
     .setDescription('🎭自動ロール設定を確認します（管理者用）'),
-  async execute(interaction, { autorole }) {
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator))
-      return interaction.reply({ content: 'サーバー管理者のみ実行できます。', ephemeral: true });
+  async execute(i, { autorole }) {
+    if (!i.memberPermissions?.has(PermissionFlagsBits.Administrator))
+      return i.reply({ content: 'サーバー管理者のみ実行できます。', ephemeral: true });
     const list = [...autorole.blacklist].sort();
     const preview =
       list
@@ -38,6 +38,6 @@ export default {
           inline: true,
         },
       );
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return i.reply({ embeds: [embed], ephemeral: true });
   },
 };

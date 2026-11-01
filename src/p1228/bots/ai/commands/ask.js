@@ -4,19 +4,19 @@ export default {
   data: new SlashCommandBuilder()
     .setName('ask')
     .setDescription('ローカルOllama AIに質問します')
-    .addStringOption((option) =>
-      option.setName('prompt').setDescription('質問内容').setRequired(true).setMaxLength(4000),
+    .addStringOption((opt) =>
+      opt.setName('prompt').setDescription('質問内容').setRequired(true).setMaxLength(4000),
     ),
-  async execute(interaction, { ollamaUrl, model, maxPrompt, logger }) {
-    const prompt = interaction.options.getString('prompt', true).trim();
+  async execute(i, { ollamaUrl, model, maxPrompt, logger }) {
+    const prompt = i.options.getString('prompt', true).trim();
     if (!prompt || prompt.length > maxPrompt)
-      return interaction.reply({
+      return i.reply({
         content: `質問は1〜${maxPrompt}文字で指定してください。`,
         ephemeral: true,
       });
-    await interaction.deferReply();
+    await i.deferReply();
     try {
-      const response = await fetch(`${ollamaUrl}/api/chat`, {
+      const res = await fetch(`${ollamaUrl}/api/chat`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -26,15 +26,15 @@ export default {
         }),
         signal: AbortSignal.timeout(120000),
       });
-      if (!response.ok) throw new Error(`Ollama HTTP ${response.status}`);
-      const payload = await response.json();
-      const answer = payload.message?.content?.trim() || 'AIから空の回答が返されました。';
+      if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+      const data = await res.json();
+      const answer = data.message?.content?.trim() || 'AIから空の回答が返されました。';
       const chunks = answer.match(/[\s\S]{1,1900}/gu) ?? ['AIから空の回答が返されました。'];
-      await interaction.editReply(chunks[0]);
-      for (const chunk of chunks.slice(1)) await interaction.followUp(chunk);
-    } catch (error) {
-      logger.error('Ollama request failed', { error: String(error) });
-      await interaction.editReply(
+      await i.editReply(chunks[0]);
+      for (const chunk of chunks.slice(1)) await i.followUp(chunk);
+    } catch (err) {
+      logger.error('Ollama request failed', { error: String(err) });
+      await i.editReply(
         'Ollamaに接続できませんでした。サービスの起動状態と設定を確認してください。',
       );
     }

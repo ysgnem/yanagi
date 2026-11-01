@@ -4,10 +4,9 @@ export default {
   data: new SlashCommandBuilder()
     .setName('server-info')
     .setDescription('🏠サーバーの基本情報を表示します'),
-  async execute(interaction) {
-    const guild = interaction.guild;
-    if (!guild)
-      return interaction.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
+  async execute(i) {
+    const guild = i.guild;
+    if (!guild) return i.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
     const embed = new EmbedBuilder()
       .setTitle(guild.name)
       .setDescription('サーバーの基本情報')
@@ -27,6 +26,6 @@ export default {
         },
       );
     if (guild.iconURL()) embed.setThumbnail(guild.iconURL());
-    return interaction.reply({ embeds: [embed] });
+    return i.reply({ embeds: [embed] });
   },
 };

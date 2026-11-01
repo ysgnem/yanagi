@@ -39,7 +39,7 @@ export function createLogger(name, logDir, level = 'INFO') {
   const file = path.join(logDir, `${name}.log`);
   const threshold = LEVELS[level] ?? LEVELS.INFO;
   let openedDay = new Date().toISOString().slice(0, 10);
-  function write(severity, message, meta = undefined) {
+  function write(severity, msg, meta = undefined) {
     if (LEVELS[severity] < threshold) return;
     const now = new Date();
     const day = now.toISOString().slice(0, 10);
@@ -51,7 +51,7 @@ export function createLogger(name, logDir, level = 'INFO') {
       time: now.toISOString(),
       level: severity,
       name,
-      message: String(message),
+      message: String(msg),
       ...(meta === undefined ? {} : { meta }),
     };
     const line = `${JSON.stringify(record)}\n`;

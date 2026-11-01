@@ -4,30 +4,27 @@ export default {
   data: new SlashCommandBuilder()
     .setName('debug-permission')
     .setDescription('Botの権限状態を確認します'),
-  async execute(interaction) {
-    if (!interaction.guild)
-      return interaction.reply({
+  async execute(i) {
+    if (!i.guild)
+      return i.reply({
         content: 'テストサーバー内で実行してください。',
         ephemeral: true,
       });
-    const me = await interaction.guild.members.fetchMe();
-    const permissions = me.permissions;
+    const me = await i.guild.members.fetchMe();
+    const perms = me.permissions;
     const checks = [
-      ['管理者', permissions.has(PermissionFlagsBits.Administrator)],
+      ['管理者', perms.has(PermissionFlagsBits.Administrator)],
       [
         'ボイスチャンネル接続',
-        permissions.has(PermissionFlagsBits.Connect) ||
-          permissions.has(PermissionFlagsBits.Administrator),
+        perms.has(PermissionFlagsBits.Connect) || perms.has(PermissionFlagsBits.Administrator),
       ],
       [
         '発言',
-        permissions.has(PermissionFlagsBits.Speak) ||
-          permissions.has(PermissionFlagsBits.Administrator),
+        perms.has(PermissionFlagsBits.Speak) || perms.has(PermissionFlagsBits.Administrator),
       ],
       [
         'メッセージ送信',
-        permissions.has(PermissionFlagsBits.SendMessages) ||
-          permissions.has(PermissionFlagsBits.Administrator),
+        perms.has(PermissionFlagsBits.SendMessages) || perms.has(PermissionFlagsBits.Administrator),
       ],
     ];
     const embed = new EmbedBuilder()
@@ -40,6 +37,6 @@ export default {
           inline: true,
         })),
       );
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return i.reply({ embeds: [embed], ephemeral: true });
   },
 };

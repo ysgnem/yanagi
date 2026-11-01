@@ -5,13 +5,13 @@ export default {
   data: new SlashCommandBuilder()
     .setName('stop')
     .setDescription('読み上げを停止してキューを消去します'),
-  async execute(interaction) {
-    const session = sessions.get(sessionKey(interaction.client.user.id, interaction.guildId));
+  async execute(i) {
+    const session = sessions.get(sessionKey(i.client.user.id, i.guildId));
     if (session) {
-      for (const controller of session.pendingRequests) controller.abort();
+      for (const abortCtl of session.pendingRequests) abortCtl.abort();
       session.queue.length = 0;
       session.player.stop(true);
     }
-    return interaction.reply({ content: '読み上げを停止しました。', ephemeral: true });
+    return i.reply({ content: '読み上げを停止しました。', ephemeral: true });
   },
 };

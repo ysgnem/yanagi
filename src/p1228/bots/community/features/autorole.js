@@ -38,9 +38,9 @@ export default function createAutoroleFeature() {
           await channel?.send(
             `⚠️ ブラックリスト対象の参加を検知しました: ${member} (\`${member.id}\`)`,
           );
-        } catch (error) {
+        } catch (err) {
           logger.error('Blacklist alert failed; role assignment remains blocked', {
-            error: String(error),
+            error: String(err),
             userId: member.id,
           });
         }
@@ -56,9 +56,9 @@ export default function createAutoroleFeature() {
             guildId: member.guild.id,
           });
         await member.roles.add(role, 'p1228 Community auto-role');
-      } catch (error) {
+      } catch (err) {
         logger.error('Could not assign community auto-role', {
-          error: String(error),
+          error: String(err),
           userId: member.id,
           roleId,
         });

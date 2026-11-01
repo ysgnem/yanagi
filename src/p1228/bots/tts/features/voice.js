@@ -14,13 +14,13 @@ import {
 import { env, positiveInt } from '../../../core/config.js';
 
 export const sessions = new Map();
-const sessionCreations = new Map();
+const sessionPromises = new Map();
 export const sessionKey = (clientId, guildId) => `${clientId}:${guildId}`;
 
 export async function disposeSession(key, session) {
   if (sessions.get(key) === session) sessions.delete(key);
   session.closed = true;
-  for (const controller of session.pendingRequests) controller.abort();
+  for (const abortCtl of session.pendingRequests) abortCtl.abort();
   session.pendingRequests.clear();
   session.queue.length = 0;
   session.player.stop(true);
@@ -33,36 +33,36 @@ export async function disposeSession(key, session) {
   }
 }
 
-export async function ensureSession(interaction) {
-  const channel = interaction.member?.voice?.channel;
-  if (!interaction.guild || !channel) throw new Error('先にボイスチャンネルへ参加してください。');
-  const key = sessionKey(interaction.client.user.id, interaction.guildId);
-  const creating = sessionCreations.get(key);
+export async function ensureSession(i) {
+  const channel = i.member?.voice?.channel;
+  if (!i.guild || !channel) throw new Error('先にボイスチャンネルへ参加してください。');
+  const key = sessionKey(i.client.user.id, i.guildId);
+  const creating = sessionPromises.get(key);
   if (creating) {
     const session = await creating;
     if (session.channelId === channel.id && sessions.get(key) === session) return session;
-    return ensureSession(interaction);
+    return ensureSession(i);
   }
   const existing = sessions.get(key);
   if (existing?.channelId === channel.id) return existing;
 
   const create = (async () => {
     if (existing) await disposeSession(key, existing);
-    const connection = joinVoiceChannel({
+    const conn = joinVoiceChannel({
       channelId: channel.id,
-      guildId: interaction.guildId,
-      adapterCreator: interaction.guild.voiceAdapterCreator,
+      guildId: i.guildId,
+      adapterCreator: i.guild.voiceAdapterCreator,
       selfDeaf: true,
     });
     try {
-      await entersState(connection, VoiceConnectionStatus.Ready, 20000);
-    } catch (error) {
-      connection.destroy();
-      throw error;
+      await entersState(conn, VoiceConnectionStatus.Ready, 20000);
+    } catch (err) {
+      conn.destroy();
+      throw err;
     }
     const player = createAudioPlayer();
     const session = {
-      connection,
+      connection: conn,
       player,
       channelId: channel.id,
       queue: [],
@@ -71,28 +71,28 @@ export async function ensureSession(interaction) {
       pendingRequests: new Set(),
       closed: false,
     };
-    connection.subscribe(player);
+    conn.subscribe(player);
     player.on(AudioPlayerStatus.Idle, async () => {
       if (session.currentFile) {
-        await fs.rm(session.currentFile, { force: true }).catch((error) => {
-          console.error('Could not remove TTS temporary file', error);
+        await fs.rm(session.currentFile, { force: true }).catch((err) => {
+          console.error('Could not remove TTS temporary file', err);
         });
       }
       session.currentFile = null;
       session.playing = false;
       void playNext(session);
     });
-    player.on('error', (error) => {
-      console.error('TTS player error', error);
+    player.on('error', (err) => {
+      console.error('TTS player error', err);
     });
     sessions.set(key, session);
     return session;
   })();
-  sessionCreations.set(key, create);
+  sessionPromises.set(key, create);
   try {
     return await create;
   } finally {
-    if (sessionCreations.get(key) === create) sessionCreations.delete(key);
+    if (sessionPromises.get(key) === create) sessionPromises.delete(key);
   }
 }
 
@@ -111,13 +111,13 @@ export async function playNext(session) {
       return;
     }
     session.player.play(createAudioResource(file));
-  } catch (error) {
-    await fs.rm(file, { force: true }).catch((cleanupError) => {
-      console.error('Could not remove TTS temporary file', cleanupError);
+  } catch (err) {
+    await fs.rm(file, { force: true }).catch((cleanupErr) => {
+      console.error('Could not remove TTS temporary file', cleanupErr);
     });
     session.currentFile = null;
     session.playing = false;
-    console.error('Could not start TTS playback', error);
+    console.error('Could not start TTS playback', err);
     void playNext(session);
   }
 }

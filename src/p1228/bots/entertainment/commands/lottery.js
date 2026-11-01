@@ -2,17 +2,16 @@ import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 
 export default {
   data: new SlashCommandBuilder().setName('lottery').setDescription('1日1回の宝くじに参加します'),
-  async execute(interaction, { repository, startBalance, lotteryCost }) {
-    if (!interaction.guildId)
-      return interaction.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
+  async execute(i, { repository: repo, startBalance, lotteryCost }) {
+    if (!i.guildId) return i.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
     const outcomes = [
       [0, 65],
       [50, 25],
       [150, 9],
       [1000, 1],
     ];
-    const totalWeight = outcomes.reduce((sum, item) => sum + item[1], 0);
-    let roll = Math.random() * totalWeight;
+    const weightSum = outcomes.reduce((sum, item) => sum + item[1], 0);
+    let roll = Math.random() * weightSum;
     let payout = 0;
     for (const [amount, weight] of outcomes) {
       roll -= weight;
@@ -22,17 +21,11 @@ export default {
       }
     }
     try {
-      const amount = repository.lottery(
-        interaction.guildId,
-        interaction.user.id,
-        lotteryCost,
-        payout,
-        startBalance,
-      );
+      const amount = repo.lottery(i.guildId, i.user.id, lotteryCost, payout, startBalance);
       const result = payout
         ? `当選！ ${payout.toLocaleString('ja-JP')} コイン`
         : '残念、今回はハズレです。';
-      return interaction.reply({
+      return i.reply({
         embeds: [
           new EmbedBuilder()
             .setTitle('宝くじの結果')
@@ -52,12 +45,12 @@ export default {
             ),
         ],
       });
-    } catch (error) {
-      return interaction.reply({
+    } catch (err) {
+      return i.reply({
         content:
-          error.code === 'SQLITE_CONSTRAINT_PRIMARYKEY'
+          err.code === 'SQLITE_CONSTRAINT_PRIMARYKEY'
             ? '今日は既に宝くじに参加済みです。'
-            : error.message,
+            : err.message,
         ephemeral: true,
       });
     }

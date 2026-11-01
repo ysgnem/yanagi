@@ -21,6 +21,5 @@ if (selected) {
     throw new Error(`Unknown bot: ${selected}. Choose: ${Object.keys(starts).join(', ')}`);
   await starts[selected]();
 } else {
-  // Start one process per bot in production/Docker; this mode is convenient for local testing.
   await Promise.all(Object.values(starts).map((start) => start()));
 }

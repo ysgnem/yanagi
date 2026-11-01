@@ -4,11 +4,10 @@ export default {
   data: new SlashCommandBuilder()
     .setName('ranking')
     .setDescription('Minaseポイントランキングを表示します'),
-  async execute(interaction, { repository }) {
-    if (!interaction.guildId)
-      return interaction.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
-    const rows = repository.top(interaction.guildId, 10);
-    const description = rows.length
+  async execute(i, { repository: repo }) {
+    if (!i.guildId) return i.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
+    const rows = repo.top(i.guildId, 10);
+    const desc = rows.length
       ? rows
           .map(
             (row, index) =>
@@ -16,12 +15,9 @@ export default {
           )
           .join('\n')
       : 'まだランキングデータがありません。';
-    return interaction.reply({
+    return i.reply({
       embeds: [
-        new EmbedBuilder()
-          .setTitle('🏆 Minaseランキング')
-          .setDescription(description)
-          .setColor(0x5865f2),
+        new EmbedBuilder().setTitle('🏆 Minaseランキング').setDescription(desc).setColor(0x5865f2),
       ],
     });
   },

@@ -5,15 +5,15 @@ export default {
   data: new SlashCommandBuilder()
     .setName('join')
     .setDescription('実行者のボイスチャンネルに参加します'),
-  async execute(interaction) {
+  async execute(i) {
     try {
-      const session = await ensureSession(interaction);
-      return interaction.reply({
+      const session = await ensureSession(i);
+      return i.reply({
         content: `<#${session.channelId}> に接続しました。`,
         ephemeral: true,
       });
-    } catch (error) {
-      return interaction.reply({ content: error.message, ephemeral: true });
+    } catch (err) {
+      return i.reply({ content: err.message, ephemeral: true });
     }
   },
 };

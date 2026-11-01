@@ -37,7 +37,6 @@ function isPublicIp(ip) {
   if (version === 4) return isPublicIpv4(ip);
   if (version !== 6) return false;
   const normalized = ip.toLowerCase();
-  // Permit only global-unicast 2000::/3. Reject mapped IPv4 and documentation space.
   if (!/^[23][0-9a-f]{0,3}:/u.test(normalized)) return false;
   if (normalized.startsWith('2001:db8:') || normalized.startsWith('2001:0db8:')) return false;
   if (normalized.startsWith('2002:') || normalized.startsWith('2001:')) return false;
@@ -52,13 +51,13 @@ async function resolvePublicHttpsUrl(value) {
     throw new Error('認証情報付きURLや443以外のポートには対応していません。');
   if (url.hostname === 'localhost' || url.hostname.endsWith('.localhost'))
     throw new Error('ローカルホストへの接続は許可されていません。');
-  const hostname = url.hostname.replace(/^\[|\]$/gu, '');
-  let addresses;
-  if (net.isIP(hostname)) addresses = [{ address: hostname }];
-  else addresses = await dns.lookup(hostname, { all: true, verbatim: true });
-  if (!addresses.length || addresses.some((entry) => !isPublicIp(entry.address)))
+  const host = url.hostname.replace(/^\[|\]$/gu, '');
+  let addrs;
+  if (net.isIP(host)) addrs = [{ address: host }];
+  else addrs = await dns.lookup(host, { all: true, verbatim: true });
+  if (!addrs.length || addrs.some((entry) => !isPublicIp(entry.address)))
     throw new Error('非公開IPアドレスへの接続は許可されていません。');
-  return { url, addresses };
+  return { url, addrs };
 }
 
 export async function validatePublicHttpsUrl(value) {
@@ -66,100 +65,98 @@ export async function validatePublicHttpsUrl(value) {
   return url;
 }
 
-function pinnedLookup(addresses) {
-  return (_hostname, options, callback) => {
-    const resolved = addresses.map(({ address }) => ({
+function pinnedLookup(addrs) {
+  return (_hostname, opts, cb) => {
+    const resolved = addrs.map(({ address }) => ({
       address,
       family: net.isIP(address),
     }));
-    if (options?.all) callback(null, resolved);
-    else callback(null, resolved[0].address, resolved[0].family);
+    if (opts?.all) cb(null, resolved);
+    else cb(null, resolved[0].address, resolved[0].family);
   };
 }
 
-function requestHttps(url, addresses, signal) {
+function requestHttps(url, addrs, signal) {
   return new Promise((resolve, reject) => {
-    const request = https.get(url, { lookup: pinnedLookup(addresses), signal }, (response) =>
-      resolve(response),
-    );
-    request.once('error', reject);
+    const req = https.get(url, { lookup: pinnedLookup(addrs), signal }, (res) => resolve(res));
+    req.once('error', reject);
   });
 }
 
 export async function downloadPublicAudio(
   value,
-  destinationPath,
+  destPath,
   { maxBytes = 50 * 1024 * 1024, timeoutMs = 60000, signal } = {},
 ) {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1)
     throw new RangeError('maxBytes must be a positive safe integer');
-  let destination = await resolvePublicHttpsUrl(value);
+  let dest = await resolvePublicHttpsUrl(value);
   for (let redirects = 0; redirects <= 5; redirects += 1) {
-    const requestSignal = signal
+    const reqSignal = signal
       ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
       : AbortSignal.timeout(timeoutMs);
-    const response = await requestHttps(destination.url, destination.addresses, requestSignal);
-    if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
-      const location = response.headers.location;
-      response.destroy();
+    const res = await requestHttps(dest.url, dest.addrs, reqSignal);
+    if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
+      const location = res.headers.location;
+      res.destroy();
       if (!location) throw new Error('音声URLのリダイレクト先が不正です。');
-      destination = await resolvePublicHttpsUrl(new URL(location, destination.url).toString());
+      dest = await resolvePublicHttpsUrl(new URL(location, dest.url).toString());
       continue;
     }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      response.destroy();
-      throw new Error(`音声URLの取得に失敗しました (HTTP ${response.statusCode})`);
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      res.destroy();
+      throw new Error(`音声URLの取得に失敗しました (HTTP ${res.statusCode})`);
     }
-    const type = (response.headers['content-type'] ?? '').split(';')[0].toLowerCase();
+    const type = (res.headers['content-type'] ?? '').split(';')[0].toLowerCase();
     if (type && !type.startsWith('audio/') && type !== 'application/octet-stream') {
-      response.destroy();
+      res.destroy();
       throw new Error('音声ファイルではないContent-Typeが返されました。');
     }
-    const declared = Number(response.headers['content-length'] ?? 0);
+    const declared = Number(res.headers['content-length'] ?? 0);
     if (declared > maxBytes) {
-      response.destroy();
+      res.destroy();
       throw new Error('音声ファイルがサイズ上限を超えています。');
     }
     let total = 0;
-    let fileCreated = false;
-    const output = createWriteStream(destinationPath, { flags: 'wx' });
+    let fileOpen = false;
+    const output = createWriteStream(destPath, { flags: 'wx' });
     output.once('open', () => {
-      fileCreated = true;
+      fileOpen = true;
     });
     try {
       await pipeline(
-        response,
+        res,
         new Transform({
-          transform(chunk, encoding, callback) {
+          transform(chunk, _enc, cb) {
             total += chunk.length;
             if (total > maxBytes) {
-              callback(new Error('音声ファイルがサイズ上限を超えています。'));
+              cb(new Error('音声ファイルがサイズ上限を超えています。'));
               return;
             }
-            callback(null, chunk);
+            cb(null, chunk);
           },
         }),
         output,
-        { signal: requestSignal },
+        { signal: reqSignal },
       );
-    } catch (error) {
-      if (fileCreated) {
+    } catch (err) {
+      if (fileOpen) {
         try {
-          await fs.rm(destinationPath, { force: true });
-        } catch (cleanupError) {
+          await fs.rm(destPath, { force: true });
+        } catch (cleanupErr) {
           throw new AggregateError(
-            [error, cleanupError],
+            [err, cleanupErr],
             'Audio download failed and its partial file could not be removed.',
           );
         }
       }
-      throw error;
+      throw err;
     }
     if (!total) {
-      await fs.rm(destinationPath, { force: true });
+      await fs.rm(destPath, { force: true });
       throw new Error('空の音声ファイルが返されました。');
     }
-    return { path: destinationPath, url: destination.url.toString() };
+    return { path: destPath, url: dest.url.toString() };
   }
   throw new Error('リダイレクト回数が上限を超えました。');
 }

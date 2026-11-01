@@ -13,11 +13,10 @@ export default {
   data: new SlashCommandBuilder()
     .setName('history')
     .setDescription('自分のポイント履歴を表示します'),
-  async execute(interaction, { repository }) {
-    if (!interaction.guildId)
-      return interaction.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
-    const rows = repository.history(interaction.guildId, interaction.user.id, 10);
-    const description = rows.length
+  async execute(i, { repository: repo }) {
+    if (!i.guildId) return i.reply({ content: 'サーバー内で実行してください。', ephemeral: true });
+    const rows = repo.history(i.guildId, i.user.id, 10);
+    const desc = rows.length
       ? rows
           .map(
             (row) =>
@@ -25,10 +24,8 @@ export default {
           )
           .join('\n')
       : '履歴はまだありません。';
-    return interaction.reply({
-      embeds: [
-        new EmbedBuilder().setTitle('ポイント履歴').setDescription(description).setColor(0x5865f2),
-      ],
+    return i.reply({
+      embeds: [new EmbedBuilder().setTitle('ポイント履歴').setDescription(desc).setColor(0x5865f2)],
       ephemeral: true,
     });
   },
