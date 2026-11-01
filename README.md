@@ -83,7 +83,29 @@ docker compose --profile bots down
 src/
   index.js                    # 全Botの起動
   p1228/
-    bots/                     # Botごとのコマンドとイベント処理
+    bots/
+      community/
+        commands/              # Communityのスラッシュコマンド（自動読み込み）
+        features/              # Communityの機能・イベント（自動読み込み）
+      ai/
+        commands/              # AIのスラッシュコマンド（自動読み込み）
+        features/              # AIの機能・設定（自動読み込み）
+      tts/
+        commands/              # TTSのスラッシュコマンド（自動読み込み）
+        features/              # 音声セッションと設定
+      minase/
+        commands/              # Minaseのスラッシュコマンド（自動読み込み）
+        features/              # ポイント管理と設定
+      music/
+        commands/              # Musicのスラッシュコマンド（自動読み込み）
+        features/              # 再生セッションと設定
+      entertainment/
+        commands/              # Entertainmentのスラッシュコマンド（自動読み込み）
+        features/              # 通貨管理と設定
+      debug/
+        commands/              # Debugのスラッシュコマンド（自動読み込み）
+        features/              # テストGuild向け設定
+      module-loader.js         # Bot共通のモジュールローダー
     core/                     # 設定、ログ、ランタイム、経済・セキュリティ共通処理
 docs/
   SETUP.md                    # 導入・設定手順
@@ -92,6 +114,8 @@ tests/
   unit/                       # node:testによるユニットテスト
 data/                         # SQLiteデータ（ローカル運用時）
 ```
+
+各Botの`commands/` 内のJavaScriptファイルをデフォルトエクスポートしたコマンドとして、`features/` 内のJavaScriptファイルをデフォルトエクスポートした機能ファクトリーとして起動時に読み込みます。各ファイルは名前順で読み込まれ、サブディレクトリは対象外です。
 
 ## ✅ テストとチェック
 
